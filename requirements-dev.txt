@@ -1,0 +1,2 @@
+# 可选：仅在打包 exe 时需要
+pyinstaller>=6.0
