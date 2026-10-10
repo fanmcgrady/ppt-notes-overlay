@@ -4,6 +4,8 @@ Windows 下的 PowerPoint 答辩/录屏辅助工具：放映时置顶显示当�
 
 > 不是 Office 官方加载项，而是通过 COM 连接桌面版 PowerPoint 的独立小工具。
 
+![界面截图](assets/screenshot.png)
+
 ## 功能
 
 - 放映时浮动显示**当前页备注**（事件驱动 + 高频兜底，尽量实时）
@@ -46,7 +48,7 @@ python notes_overlay.py
 
 ```json
 {
-  "app_title": "WJF答辩专用插件",
+  "app_title": "答辩专用插件",
   "countdown_min": 30
 }
 ```
@@ -70,7 +72,7 @@ powershell -ExecutionPolicy Bypass -File scripts\build_exe.ps1
 python scripts\build_exe.py
 ```
 
-产物：`dist\WJF答辩专用插件_vYYYYMMDD.exe`。版本号为 v + 8 位日期，打包时自动写入 `notes_overlay.py` 的 `APP_VERSION`，窗口标题、右下角标签和 exe 文件名同步显示。
+产物：`dist\答辩专用插件_vYYYYMMDD.exe`。版本号为 v + 8 位日期，打包时自动写入 `notes_overlay.py` 的 `APP_VERSION`，窗口标题、右下角标签和 exe 文件名同步显示。
 
 ## 目录结构
 
@@ -80,7 +82,8 @@ ppt-notes-overlay/
 ├── config.json           # 可配置名称等
 ├── assets/
 │   ├── icon.ico          # 应用图标
-│   └── icon.png
+│   ├── icon.png
+│   └── screenshot.png    # README 界面截图
 ├── scripts/
 │   ├── run.bat           # 开发运行
 │   └── build_exe.bat     # 打包 exe

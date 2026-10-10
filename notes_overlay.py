@@ -41,7 +41,7 @@ RECONNECT_SEC = 1.0
 EMPTY_REATTACH_SEC = 1.5
 # 8 位日期；scripts/build_exe.py 打包时自动改为当天
 APP_VERSION = "20261010"
-DEFAULT_APP_TITLE = "WJF答辩专用插件"
+DEFAULT_APP_TITLE = "答辩专用插件"
 CONFIG_FILE_NAME = "config.json"
 DEFAULT_COUNTDOWN_MIN = 30
 COUNTDOWN_FG = "#b0b0b0"

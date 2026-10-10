@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-EXE_BASE_NAME = "WJF答辩专用插件"
+EXE_BASE_NAME = "答辩专用插件"
 _VERSION_RE = re.compile(r'^APP_VERSION\s*=\s*"[^"]*"', re.M)
 
 
