@@ -1,4 +1,4 @@
-# PPT答辩字幕优化插件
+# PPT答辩备注优化插件
 
 Windows 下的 PowerPoint 答辩/录屏辅助工具：放映时置顶显示当前页备注，并提供排练计时与备注导出。
 
@@ -48,13 +48,13 @@ python notes_overlay.py
 
 ```json
 {
-  "app_title": "答辩专用插件",
+  "app_title": "PPT答辩备注优化插件",
   "countdown_min": 30
 }
 ```
 
 - 开发运行：改源码目录里的 `config.json`
-- 打包 exe：分发时只需发 exe；首次运行会在 exe 同目录自动生成 `config.json`，该目录不可写时改存到 `%APPDATA%\答辩专用插件\config.json`
+- 打包 exe：分发时只需发 exe；首次运行会在 exe 同目录自动生成 `config.json`，该目录不可写时改存到 `%APPDATA%\PPT答辩备注优化插件\config.json`
 
 ## 打包成 exe
 
@@ -72,7 +72,7 @@ powershell -ExecutionPolicy Bypass -File scripts\build_exe.ps1
 python scripts\build_exe.py
 ```
 
-产物：`dist\答辩专用插件_vYYYYMMDD.exe`。版本号为 v + 8 位日期，打包时自动写入 `notes_overlay.py` 的 `APP_VERSION`，窗口标题、右下角标签和 exe 文件名同步显示。
+产物：`dist\PPT答辩备注优化插件_vYYYYMMDD.exe`。版本号为 v + 8 位日期，打包时自动写入 `notes_overlay.py` 的 `APP_VERSION`，窗口标题、右下角标签和 exe 文件名同步显示。
 
 ## 目录结构
 

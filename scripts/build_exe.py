@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""打包答辩专用插件为单文件 exe（供 .bat / .ps1 调用）。"""
+"""打包 PPT答辩备注优化插件 为单文件 exe（供 .bat / .ps1 调用）。"""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-EXE_BASE_NAME = "答辩专用插件"
+EXE_BASE_NAME = "PPT答辩备注优化插件"
 _VERSION_RE = re.compile(r'^APP_VERSION\s*=\s*"[^"]*"', re.M)
 
 
@@ -65,7 +65,7 @@ def main() -> int:
     exe_name = f"{EXE_BASE_NAME}_v{stamp_app_version()}"
     dist = ROOT / "dist"
     # 清掉旧版本 exe，dist 里只留本次产物
-    for old in dist.glob("*答辩专用插件*.exe"):
+    for old in dist.glob("*答辩*插件*.exe"):
         old.unlink()
     run(
         [

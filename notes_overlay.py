@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-答辩专用插件 — PowerPoint 浮动备注 + 排练计时
+PPT答辩备注优化插件 — PowerPoint 浮动备注 + 排练计时
 
 放映时置顶显示当前页备注；支持字号调节、备注导出 Word。
 翻页使用 PowerPoint 原生快捷键。
@@ -41,7 +41,7 @@ RECONNECT_SEC = 1.0
 EMPTY_REATTACH_SEC = 1.5
 # 8 位日期；scripts/build_exe.py 打包时自动改为当天
 APP_VERSION = "20261010"
-DEFAULT_APP_TITLE = "答辩专用插件"
+DEFAULT_APP_TITLE = "PPT答辩备注优化插件"
 CONFIG_FILE_NAME = "config.json"
 DEFAULT_COUNTDOWN_MIN = 30
 COUNTDOWN_FG = "#b0b0b0"
@@ -86,12 +86,12 @@ _config_path_cache: Path | None = None
 
 
 def config_path() -> Path:
-    """优先 exe 同目录；该目录不可写时退到 %APPDATA%\\答辩专用插件。"""
+    """优先 exe 同目录；该目录不可写时退到 %APPDATA%\\PPT答辩备注优化插件。"""
     global _config_path_cache
     if _config_path_cache is not None:
         return _config_path_cache
     local = app_dir()
-    appdata = Path(os.environ.get("APPDATA") or Path.home()) / "答辩专用插件"
+    appdata = Path(os.environ.get("APPDATA") or Path.home()) / "PPT答辩备注优化插件"
     chosen = local / CONFIG_FILE_NAME
     if not chosen.exists():
         if (appdata / CONFIG_FILE_NAME).exists() or not _dir_writable(local):
