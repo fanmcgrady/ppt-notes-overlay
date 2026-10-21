@@ -40,12 +40,14 @@ RECONNECT_SEC = 1.0
 # 已挂上 PPT 但长时间没有演示文稿时，释放后重新 GetActiveObject
 EMPTY_REATTACH_SEC = 1.5
 # 8 位日期；scripts/build_exe.py 打包时自动改为当天
-APP_VERSION = "20261010"
+APP_VERSION = "20261021"
 DEFAULT_APP_TITLE = "PPT答辩备注优化插件"
 CONFIG_FILE_NAME = "config.json"
 DEFAULT_COUNTDOWN_MIN = 30
 COUNTDOWN_FG = "#b0b0b0"
 COUNTDOWN_WARN_FG = "#ff5252"
+# 勾选「背景透明」时的窗口不透明度；取消勾选为 1（完全不透明）
+WINDOW_ALPHA = 0.92
 # 备注里 #…# 括起的内容导出为 Word 批注，且不计入字数（全角＃同样识别）
 _COMMENT_NOTE_RE = re.compile(r"[#＃]([^#＃]*)[#＃]")
 
@@ -436,10 +438,7 @@ class NotesOverlayApp:
         self._setup_dpi_and_geometry()
         self.root.resizable(True, True)
         self.root.attributes("-topmost", True)
-        try:
-            self.root.attributes("-alpha", 0.92)
-        except Exception:
-            pass
+        self._apply_window_alpha(True)
         self.root.configure(bg="#1e1e1e")
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
         self._set_window_icon()
@@ -581,20 +580,32 @@ class NotesOverlayApp:
         )
         self.countdown_label.pack(side="left")
 
+        check_style = {
+            "fg": "#eeeeee",
+            "bg": "#2b2b2b",
+            "selectcolor": "#2b2b2b",
+            "activebackground": "#2b2b2b",
+            "activeforeground": "#ffffff",
+            "font": self.title_font,
+        }
         self.pin_var = tk.BooleanVar(value=True)
         pin_btn = tk.Checkbutton(
             row1,
             text="置顶",
             variable=self.pin_var,
             command=self._toggle_topmost,
-            fg="#eeeeee",
-            bg="#2b2b2b",
-            selectcolor="#2b2b2b",
-            activebackground="#2b2b2b",
-            activeforeground="#ffffff",
-            font=self.title_font,
+            **check_style,
         )
         pin_btn.pack(side="right", padx=(int(8 * s), 0))
+        self.alpha_var = tk.BooleanVar(value=True)
+        alpha_btn = tk.Checkbutton(
+            row1,
+            text="背景透明",
+            variable=self.alpha_var,
+            command=self._toggle_alpha,
+            **check_style,
+        )
+        alpha_btn.pack(side="right", padx=(int(8 * s), 0))
 
         zoom_style = {
             "font": self.title_font,
@@ -631,6 +642,9 @@ class NotesOverlayApp:
             side="left", padx=(0, int(6 * s))
         )
         tk.Button(row2, text="导入备注", command=self._import_notes_docx, **zoom_style).pack(
+            side="left", padx=(0, int(6 * s))
+        )
+        tk.Button(row2, text="清除备注", command=self._clear_notes_dialog, **zoom_style).pack(
             side="left", padx=(0, int(6 * s))
         )
         tk.Button(row2, text="A−", command=lambda: self._change_font(-2), **zoom_style).pack(
@@ -840,6 +854,15 @@ class NotesOverlayApp:
     def _toggle_topmost(self) -> None:
         self.root.attributes("-topmost", bool(self.pin_var.get()))
 
+    def _apply_window_alpha(self, transparent: bool) -> None:
+        try:
+            self.root.attributes("-alpha", WINDOW_ALPHA if transparent else 1.0)
+        except Exception:
+            pass
+
+    def _toggle_alpha(self) -> None:
+        self._apply_window_alpha(bool(self.alpha_var.get()))
+
     def _show_help_dialog(self) -> None:
         win = tk.Toplevel(self.root)
         win.title("使用说明")
@@ -894,10 +917,15 @@ class NotesOverlayApp:
             "选择与「导出备注」同格式的 Word，按「第 N 页」标题逐页覆盖当前 PPT 的备注；"
             "Word 批注会用 #…# 包裹，空一行放在该页备注最后。"
             "Word 里没有的页保持不变；写入后需自行保存 PPT。\n\n"
+            "【清除备注】\n"
+            "可清除当前页或全部页的备注；清除前会确认。"
+            "操作不可撤销（除非 PPT 尚未保存且可从备份恢复），完成后请自行保存 PPT。\n\n"
             "【A− / A+】\n"
             "缩小 / 放大备注字号；也可用 Ctrl+滚轮。\n\n"
             "【置顶】\n"
             "窗口是否始终浮在最前，录屏时可视情况关闭。\n\n"
+            "【背景透明】\n"
+            "默认勾选，窗口略透明。取消勾选后窗口完全不透明。\n\n"
             "【倒计时设置】\n"
             "在按钮行右侧设置答辩限时（分钟，会记住）。"
             "点击「幻灯片放映」后开始倒数，剩余时间显示在顶部「总计」右侧，"
@@ -1089,11 +1117,16 @@ class NotesOverlayApp:
             pass
 
     def _handle_ppt_cmd_result(self, result: dict) -> None:
-        if result.get("op") == "import_notes":
+        op = str(result.get("op") or "")
+        if op in ("import_notes", "clear_notes"):
+            title = "导入备注" if op == "import_notes" else "清除备注"
             if not result.get("ok"):
-                messagebox.showerror("导入备注", f"导入失败：\n{result.get('error') or '操作失败'}")
+                messagebox.showerror(title, f"{title}失败：\n{result.get('error') or '操作失败'}")
                 return
-            msg = f"已写入 {result.get('written', 0)} 页备注。"
+            if op == "import_notes":
+                msg = f"已写入 {result.get('written', 0)} 页备注。"
+            else:
+                msg = f"已清除 {result.get('written', 0)} 页备注。"
             skipped = result.get("skipped") or []
             failed = result.get("failed") or []
             if skipped:
@@ -1101,7 +1134,7 @@ class NotesOverlayApp:
             if failed:
                 msg += f"\n\n找不到备注占位符、未写入：第 {', '.join(map(str, failed))} 页"
             msg += "\n\n请在 PowerPoint 中保存演示文稿。"
-            messagebox.showinfo("导入备注", msg)
+            messagebox.showinfo(title, msg)
             return
         if not result.get("ok"):
             self.state_var.set("计时未开始（请点「幻灯片放映」）")
@@ -1322,6 +1355,91 @@ class NotesOverlayApp:
             ):
                 return
             self._send_ppt_cmd({"op": "import_notes", "pages": pages})
+        finally:
+            if was_top and bool(self.pin_var.get()):
+                self.root.attributes("-topmost", True)
+
+    def _clear_notes_dialog(self) -> None:
+        """清除当前页或全部页备注（二次确认）。"""
+        was_top = bool(self.pin_var.get())
+        if was_top:
+            self.root.attributes("-topmost", False)
+        try:
+            win = tk.Toplevel(self.root)
+            win.title("清除备注")
+            win.configure(bg="#1e1e1e")
+            win.attributes("-topmost", True)
+            win.resizable(False, False)
+            win.grab_set()
+
+            tk.Label(
+                win,
+                text="请选择要清除的范围（不可撤销）",
+                fg="#eeeeee",
+                bg="#1e1e1e",
+                font=self.title_font,
+            ).pack(padx=20, pady=(16, 10))
+
+            btns = tk.Frame(win, bg="#1e1e1e")
+            btns.pack(padx=20, pady=(0, 16))
+
+            def choose(scope: str) -> None:
+                win.destroy()
+                if scope == "all":
+                    if not messagebox.askyesno(
+                        "清除备注",
+                        "将清空当前演示文稿全部页的备注。\n\n"
+                        "此操作不可撤销（除非 PPT 尚未保存）。是否继续？",
+                        icon="warning",
+                    ):
+                        return
+                elif scope == "current":
+                    idx = self._last_index if self._last_index and self._last_index > 0 else 0
+                    if idx < 1:
+                        messagebox.showwarning("清除备注", "未检测到当前页，请先打开演示文稿。")
+                        return
+                    if not messagebox.askyesno(
+                        "清除备注",
+                        f"将清空第 {idx} 页的备注。\n\n是否继续？",
+                    ):
+                        return
+                self._send_ppt_cmd({"op": "clear_notes", "scope": scope})
+
+            style = {
+                "font": self.title_font,
+                "relief": "flat",
+                "bd": 0,
+                "padx": 14,
+                "pady": 6,
+                "cursor": "hand2",
+                "fg": "#ffffff",
+                "activeforeground": "#ffffff",
+            }
+            tk.Button(
+                btns,
+                text="当前页",
+                command=lambda: choose("current"),
+                bg="#6d4c41",
+                activebackground="#795548",
+                **style,
+            ).pack(side="left", padx=(0, 8))
+            tk.Button(
+                btns,
+                text="全部页",
+                command=lambda: choose("all"),
+                bg="#c62828",
+                activebackground="#d32f2f",
+                **style,
+            ).pack(side="left", padx=(0, 8))
+            tk.Button(
+                btns,
+                text="取消",
+                command=win.destroy,
+                bg="#3a3a3a",
+                activebackground="#505050",
+                **style,
+            ).pack(side="left")
+            win.focus_force()
         finally:
             if was_top and bool(self.pin_var.get()):
                 self.root.attributes("-topmost", True)
@@ -1698,6 +1816,41 @@ class NotesOverlayApp:
                             "op": op,
                             "written": written,
                             "skipped": skipped,
+                            "failed": failed,
+                        }
+                    )
+                    return
+                if op == "clear_notes":
+                    slide_count = int(pres.Slides.Count)
+                    scope = str(cmd.get("scope") or "all")
+                    pages: list[int] = []
+                    if scope == "current":
+                        page_no = 0
+                        try:
+                            if int(app.SlideShowWindows.Count) > 0:
+                                page_no = int(app.SlideShowWindows(1).View.Slide.SlideIndex)
+                            else:
+                                page_no = int(app.ActiveWindow.View.Slide.SlideIndex)
+                        except Exception:
+                            page_no = int(outer._last_index or 0)
+                        if page_no < 1 or page_no > slide_count:
+                            raise RuntimeError("未检测到当前页，请先打开演示文稿并选中一页。")
+                        pages = [page_no]
+                    else:
+                        pages = list(range(1, slide_count + 1))
+                    written = 0
+                    failed: list[int] = []
+                    for page_no in pages:
+                        if set_slide_notes(pres.Slides(page_no), ""):
+                            written += 1
+                        else:
+                            failed.append(page_no)
+                    last_index = None
+                    outer._post_ppt_cmd_result(
+                        {
+                            "ok": True,
+                            "op": op,
+                            "written": written,
                             "failed": failed,
                         }
                     )
