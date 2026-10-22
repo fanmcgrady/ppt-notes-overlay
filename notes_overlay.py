@@ -48,6 +48,7 @@ COUNTDOWN_FG = "#b0b0b0"
 COUNTDOWN_WARN_FG = "#ff5252"
 # 勾选「背景透明」时的窗口不透明度；取消勾选为 1（完全不透明）
 WINDOW_ALPHA = 0.92
+_NO_NOTES = "（本页无备注）"
 # 备注里 #…# 括起的内容导出为 Word 批注，且不计入字数（全角＃同样识别）
 _COMMENT_NOTE_RE = re.compile(r"[#＃]([^#＃]*)[#＃]")
 
@@ -234,7 +235,24 @@ def extract_notes(slide) -> str:
             return "\n".join(parts)
     except Exception:
         pass
-    return "（本页无备注）"
+    return _NO_NOTES
+
+
+def next_page_notes(slide) -> tuple[bool, str]:
+    """下一页是否存在，以及下一页备注正文（无备注时为空串）。"""
+    try:
+        index = int(slide.SlideIndex)
+        # slide.Parent 是 Presentation，幻灯片集合在 .Slides
+        slides = slide.Parent.Slides
+        total = int(slides.Count)
+        if index < 1 or index >= total:
+            return False, ""
+        raw = extract_notes(slides(index + 1))
+        if raw == _NO_NOTES:
+            return True, ""
+        return True, raw
+    except Exception:
+        return False, ""
 
 
 def set_slide_notes(slide, text: str) -> bool:
@@ -414,6 +432,9 @@ class NotesOverlayApp:
         self._last_index: int | None = None
         self._last_total: int | None = None
         self._last_notes = ""
+        self._last_has_next = False
+        self._last_next_notes = ""
+        self._next_full_text = "下页：—"
         self._stop_event = threading.Event()
 
         # UI 合并：只应用最新一帧，避免 after 队列堆积造成卡顿
@@ -516,6 +537,7 @@ class NotesOverlayApp:
         self.title_font = tkfont.Font(family="Microsoft YaHei UI", size=title_pt, weight="bold")
         self.timer_font = tkfont.Font(family="Consolas", size=timer_pt, weight="bold")
         self.body_font = tkfont.Font(family="Microsoft YaHei UI", size=self._font_size)
+        self.caption_font = tkfont.Font(family="Microsoft YaHei UI", size=8)
 
         header = tk.Frame(self.root, bg="#2b2b2b")
         header.pack(fill="x", side="top")
@@ -687,8 +709,60 @@ class NotesOverlayApp:
             side="right"
         )
 
+        # 底部先 pack，再放中间备注区；否则 expand 的 body 会把底部挤没
+        grip_font = tkfont.Font(family="Microsoft YaHei UI", size=8)
+        grip = tk.Frame(self.root, bg="#1e1e1e")
+        grip.pack(fill="x", side="bottom")
+        tk.Label(
+            grip,
+            text="Ctrl+滚轮 调字号",
+            fg="#888888",
+            bg="#1e1e1e",
+            font=grip_font,
+            anchor="w",
+        ).pack(side="left", padx=8, pady=1)
+
+        resize_box = tk.Frame(grip, bg="#2b2b2b", cursor="size_nw_se")
+        resize_box.pack(side="right", padx=4, pady=1)
+        tk.Label(
+            grip,
+            text=f"v{APP_VERSION}",
+            fg="#666666",
+            bg="#1e1e1e",
+            font=grip_font,
+        ).pack(side="right", padx=(0, 4), pady=1)
+        self._resize_icon = tk.Label(
+            resize_box,
+            text="↘ 拖拽改大小",
+            fg="#cccccc",
+            bg="#2b2b2b",
+            font=grip_font,
+            cursor="size_nw_se",
+            padx=6,
+            pady=1,
+        )
+        self._resize_icon.pack()
+        for w in (resize_box, self._resize_icon):
+            w.bind("<ButtonPress-1>", self._start_resize)
+            w.bind("<B1-Motion>", self._do_resize)
+
         body = tk.Frame(self.root, bg="#1e1e1e")
         body.pack(fill="both", expand=True, padx=10, pady=(8, 4))
+
+        self._next_holder = tk.Frame(body, bg="#1a1a1a")
+        self._next_holder.pack(side="bottom", fill="x", pady=(6, 0))
+        self.next_var = tk.StringVar(value=self._next_full_text)
+        self.next_label = tk.Label(
+            self._next_holder,
+            textvariable=self.next_var,
+            fg="#8d8d8d",
+            bg="#1a1a1a",
+            font=self.caption_font,
+            anchor="w",
+            padx=4,
+        )
+        self.next_label.pack(side="left", fill="x", expand=True, padx=(0, 22))
+        self._next_holder.bind("<Configure>", self._fit_next_label)
 
         style = ttk.Style()
         try:
@@ -725,66 +799,22 @@ class NotesOverlayApp:
             font=self.body_font,
             bg="#1a1a1a",
             fg="#ffffff",
-            insertbackground="#ffffff",
             relief="flat",
             padx=12,
             pady=10,
             borderwidth=0,
             highlightthickness=0,
+            cursor="arrow",
+            insertwidth=0,
+            takefocus=0,
+            state="disabled",
             yscrollcommand=self._notes_scroll.set,
         )
         self.notes.pack(side="left", fill="both", expand=True)
-        self.notes.insert("1.0", "正在连接 PowerPoint…")
-        self.notes.bind("<Key>", self._on_notes_key)
-        self.notes.bind("<<Paste>>", lambda _e: "break")
-        self.notes.bind("<Button-1>", lambda _e: self.notes.focus_set())
+        self.notes.tag_configure("body", foreground="#ffffff")
+        self._set_notes_if_changed("正在连接 PowerPoint…")
         self.notes.bind("<MouseWheel>", self._on_notes_wheel)
         body.bind_all("<MouseWheel>", self._on_notes_wheel_global)
-
-        # 底部最下：拖拽改大小
-        grip = tk.Frame(self.root, bg="#1e1e1e")
-        grip.pack(fill="x", side="bottom")
-        tk.Label(
-            grip,
-            text="Ctrl+滚轮 调字号",
-            fg="#888888",
-            bg="#1e1e1e",
-            font=self.title_font,
-            anchor="w",
-        ).pack(side="left", padx=10, pady=2)
-
-        resize_box = tk.Frame(grip, bg="#2b2b2b", cursor="size_nw_se")
-        resize_box.pack(side="right", padx=6, pady=4)
-        tk.Label(
-            grip,
-            text=f"v{APP_VERSION}",
-            fg="#666666",
-            bg="#1e1e1e",
-            font=self.title_font,
-        ).pack(side="right", padx=(0, 6), pady=2)
-        self._resize_icon = tk.Label(
-            resize_box,
-            text=" ↘ ",
-            fg="#dddddd",
-            bg="#2b2b2b",
-            font=tkfont.Font(family="Segoe UI Symbol", size=14, weight="bold"),
-            cursor="size_nw_se",
-            padx=8,
-            pady=2,
-        )
-        self._resize_icon.pack()
-        tip = tk.Label(
-            resize_box,
-            text="拖拽改大小",
-            fg="#aaaaaa",
-            bg="#2b2b2b",
-            font=self.title_font,
-            cursor="size_nw_se",
-        )
-        tip.pack(pady=(0, 2))
-        for w in (resize_box, self._resize_icon, tip):
-            w.bind("<ButtonPress-1>", self._start_resize)
-            w.bind("<B1-Motion>", self._do_resize)
 
         self.root.bind("<Control-plus>", lambda _e: self._change_font(+2))
         self.root.bind("<Control-equal>", lambda _e: self._change_font(+2))
@@ -853,6 +883,44 @@ class NotesOverlayApp:
 
     def _toggle_topmost(self) -> None:
         self.root.attributes("-topmost", bool(self.pin_var.get()))
+
+    def _format_next_line(self, index: int, total: int, has_next: bool, notes: str) -> str:
+        if index <= 0 or total <= 0:
+            return "下页：—"
+        if index >= total:
+            return "下页：（最后一页）"
+        if not has_next:
+            return "下页：—"
+        one = " ".join((notes or "").split())
+        if not one:
+            return "下页：（无备注）"
+        return "下页：" + one
+
+    def _show_next_notes(self, index: int, total: int, has_next: bool, notes: str) -> None:
+        self._last_has_next = has_next
+        self._last_next_notes = notes
+        self._next_full_text = self._format_next_line(index, total, has_next, notes)
+        self._fit_next_label()
+
+    def _fit_next_label(self, event=None) -> None:
+        raw = self._next_full_text or "下页：—"
+        try:
+            width = int(event.width) if event is not None else int(self._next_holder.winfo_width())
+        except Exception:
+            width = 0
+        width = max(40, width - 28)
+        text = raw
+        if self.caption_font.measure(text) > width:
+            ell = "…"
+            lo, hi = 0, len(raw)
+            while lo < hi:
+                mid = (lo + hi + 1) // 2
+                if self.caption_font.measure(raw[:mid] + ell) <= width:
+                    lo = mid
+                else:
+                    hi = mid - 1
+            text = raw[:lo] + ell if lo else ell
+        self._set_var(self.next_var, text)
 
     def _apply_window_alpha(self, transparent: bool) -> None:
         try:
@@ -926,6 +994,8 @@ class NotesOverlayApp:
             "窗口是否始终浮在最前，录屏时可视情况关闭。\n\n"
             "【背景透明】\n"
             "默认勾选，窗口略透明。取消勾选后窗口完全不透明。\n\n"
+            "【下页】\n"
+            "备注区底部用灰色显示下一页备注的开头，方便翻页前看一眼。\n\n"
             "【倒计时设置】\n"
             "在按钮行右侧设置答辩限时（分钟，会记住）。"
             "点击「幻灯片放映」后开始倒数，剩余时间显示在顶部「总计」右侧，"
@@ -1079,11 +1149,6 @@ class NotesOverlayApp:
     def _on_nav_key(self, event):
         if self._forward_slideshow_key(event):
             return "break"
-
-    def _on_notes_key(self, event):
-        # 备注只读；放映中仍转发翻页键
-        self._forward_slideshow_key(event)
-        return "break"
 
     def _reactivate_slideshow(self) -> None:
         """把键盘焦点交回普通放映窗口。"""
@@ -1643,9 +1708,10 @@ class NotesOverlayApp:
         if text == self._last_notes:
             return
         self._last_notes = text
-        self.notes.configure(state="normal")
+        self.notes.configure(state="normal", cursor="arrow")
         self.notes.delete("1.0", "end")
-        self.notes.insert("1.0", text)
+        self.notes.insert("1.0", text, "body")
+        self.notes.configure(state="disabled", cursor="arrow")
         self.notes.yview_moveto(0)
         self.notes.see("1.0")
 
@@ -1692,6 +1758,13 @@ class NotesOverlayApp:
         if force_notes or notes:
             self._set_notes_if_changed(notes)
 
+        if "has_next" in snap or "next_notes" in snap or force_notes:
+            self._show_next_notes(
+                index,
+                total,
+                bool(snap.get("has_next")),
+                str(snap.get("next_notes") or ""),
+            )
         if show_ended and self.timer.page_history:
             self.root.after(120, self._show_page_times_dialog)
 
@@ -1714,11 +1787,14 @@ class NotesOverlayApp:
                 total = int(slide.Parent.Slides.Count)
             except Exception:
                 idx, total = 0, 0
+            has_next, next_notes = next_page_notes(slide)
             return {
                 "showing": showing,
                 "index": idx,
                 "total": total,
                 "notes": extract_notes(slide),
+                "has_next": has_next,
+                "next_notes": next_notes,
                 "force_notes": True,
                 "error": None,
             }
@@ -1743,6 +1819,8 @@ class NotesOverlayApp:
                         "index": outer._last_index or 0,
                         "total": outer._last_total or 0,
                         "notes": outer._last_notes,
+                        "has_next": outer._last_has_next,
+                        "next_notes": outer._last_next_notes,
                         "force_notes": False,
                         "error": None,
                     }
