@@ -28,7 +28,7 @@ Windows 下的 PowerPoint 答辩/录屏辅助工具：放映时置顶显示当�
 
 ## 下载（推荐）
 
-到 [Releases](https://github.com/fanmcgrady/ppt-notes-overlay/releases) 下载最新的 `PPT答辩备注优化插件_vYYYYMMDD.exe`，双击即可运行。
+到 [Releases](https://github.com/fanmcgrady/ppt-notes-overlay/releases) 下载最新的 `PPT-Notes-Overlay_vYYYYMMDD.exe`，双击即可运行。
 
 需要本机已安装桌面版 PowerPoint。Windows 首次打开未签名 exe 时可能提示「未知发布者」，选「仍要运行」即可。
 
