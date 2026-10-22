@@ -40,7 +40,7 @@ RECONNECT_SEC = 1.0
 # 已挂上 PPT 但长时间没有演示文稿时，释放后重新 GetActiveObject
 EMPTY_REATTACH_SEC = 1.5
 # 8 位日期；scripts/build_exe.py 打包时自动改为当天
-APP_VERSION = "20261021"
+APP_VERSION = "20261022"
 DEFAULT_APP_TITLE = "PPT答辩备注优化插件"
 CONFIG_FILE_NAME = "config.json"
 DEFAULT_COUNTDOWN_MIN = 30

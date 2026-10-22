@@ -23,9 +23,16 @@ Windows 下的 PowerPoint 答辩/录屏辅助工具：放映时置顶显示当�
 
 - Windows 10 / 11
 - 桌面版 Microsoft PowerPoint
-- Python 3.10+（建议 3.11+）
+- 直接用 exe：无需安装 Python
+- 从源码运行：Python 3.10+（建议 3.11+）
 
-## 快速开始
+## 下载（推荐）
+
+到 [Releases](https://github.com/fanmcgrady/ppt-notes-overlay/releases) 下载最新的 `PPT答辩备注优化插件_vYYYYMMDD.exe`，双击即可运行。
+
+需要本机已安装桌面版 PowerPoint。Windows 首次打开未签名 exe 时可能提示「未知发布者」，选「仍要运行」即可。
+
+## 从源码运行
 
 ```bat
 pip install -r requirements.txt
@@ -37,7 +44,7 @@ python notes_overlay.py
 使用步骤：
 
 1. 先打开带备注的 PPT
-2. 运行本工具
+2. 运行本工具（exe 或源码）
 3. 点工具里的「幻灯片放映」开始放映并计时
 4. 浮动窗会同步显示当前页备注与计时
 
