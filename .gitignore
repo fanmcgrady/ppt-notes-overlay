@@ -27,3 +27,7 @@ desktop.ini
 *.docx
 *_备注.docx
 *.log
+
+# Local runtime / scratch
+config.json
+_scripts/
