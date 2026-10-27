@@ -684,27 +684,26 @@ class NotesOverlayApp:
             font=self.title_font,
         ).pack(side="left", padx=(0, int(4 * s)))
         self.countdown_min_var = tk.StringVar(value=str(cfg_min))
-        self._countdown_min_spin = tk.Spinbox(
+        self._countdown_min_entry = tk.Entry(
             row2,
-            from_=0,
-            to=180,
             textvariable=self.countdown_min_var,
-            command=self._on_countdown_setting_change,
             width=4,
             font=self.title_font,
             justify="center",
             bg="#333333",
             fg="#ffffff",
-            buttonbackground="#444444",
             relief="flat",
             insertbackground="#ffffff",
+            highlightthickness=1,
+            highlightbackground="#444444",
+            highlightcolor="#666666",
         )
-        self._countdown_min_spin.pack(side="left")
+        self._countdown_min_entry.pack(side="left")
         tk.Label(row2, text="分钟", fg="#aaaaaa", bg="#2b2b2b", font=self.title_font).pack(
             side="left", padx=(2, 0)
         )
-        self._countdown_min_spin.bind("<FocusOut>", lambda _e: self._on_countdown_setting_change())
-        self._countdown_min_spin.bind("<Return>", lambda _e: self._on_countdown_setting_change())
+        self._countdown_min_entry.bind("<FocusOut>", lambda _e: self._on_countdown_setting_change())
+        self._countdown_min_entry.bind("<Return>", lambda _e: self._on_countdown_setting_change())
         tk.Button(row2, text="使用说明", command=self._show_help_dialog, **zoom_style).pack(
             side="right"
         )
